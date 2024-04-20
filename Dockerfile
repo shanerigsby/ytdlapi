@@ -2,7 +2,25 @@
 # use the official Bun image
 # see all versions at https://hub.docker.com/r/oven/bun/tags
 FROM oven/bun:1 as base
+
+
+# Install curl, python3, and ffmpeg
+RUN apt-get update && \
+    apt-get install -y curl python3 ffmpeg && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Set up working directory
 WORKDIR /usr/src/app
+
+# Create directories and set permissions
+RUN mkdir -p /usr/src/app/mp3s /usr/src/app/logs /usr/src/app/bin && \
+    chmod -R 777 /usr/src/app
+
+# yt-dlp executable
+RUN curl -L https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp -o /usr/src/app/bin/yt-dlp && \
+    chmod a+rx /usr/src/app/bin/yt-dlp && \
+    /usr/src/app/bin/yt-dlp --update-to nightly
 
 # install dependencies into temp directory
 # this will cache them and speed up future builds
@@ -24,7 +42,7 @@ COPY . .
 
 # tests & build
 # note: if build script doesn't exist or outputs to a different file path
-# than ./dist/app.js, adjust accordingly the path in the next section
+# then ./dist/app.js, adjust accordingly the path in the next section
 ENV NODE_ENV=production
 RUN bun run build
 

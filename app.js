@@ -9,17 +9,34 @@ const fs = require('fs');
 const path = require('path');
 const { readdir, stat } = require('fs/promises');
 const glob = require('glob')
+const winston = require('winston');
 
 
 const port = process.env.PORT || 8085;
 const webAddress = "https://warp.rigsby.casa";
-const mp3Folder = "/home/shane/mp3s";
-const maxStorage = 20000000;  //500000000;
+const mp3Folder = path.join(__dirname, "/mp3s");
+const dlExecutable = path.join(__dirname, "bin", "yt-dlp");
+const maxStorage = 500000000;
+
+const logger = winston.createLogger({
+	level: 'info',
+	format: winston.format.combine(
+	  winston.format.timestamp(),
+	  winston.format.json()
+	),
+	transports: [
+	  new winston.transports.Console(),
+	  new winston.transports.File({ filename: path.join(__dirname, 'logs', 'app.log') })
+	]
+  });
+  
 const app = express();
 app.use(cors());
 app.use(helmet());
 app.use(bodyParser.text());
 app.use('/files', express.static(mp3Folder));
+
+logger.info('Express app started');
 
 
 const isValidURL = (string) => {
@@ -37,7 +54,7 @@ const getVideoId = (string) => {
 	
 	if (match) {
 	  const videoId = match[1];
-	  console.log(videoId);
+	  logger.info(videoId);
 	  return videoId
 	}
 	const queryString = new URL(string).searchParams;
@@ -102,43 +119,44 @@ app.post('/dl', (req, res) => {
 
 	const filePath = `${mp3Folder}/${videoId}.mp3`;
 	if (fs.existsSync(filePath)) {
-		console.log('exists', filePath);
+		logger.info(`file exists: ${filePath}`);
 		res.send(getSongUrl(`${videoId}.mp3`));
 		return;
 	} else {
-		console.log('nonexistent', filePath);
+		logger.info(`file not yet downloaded: ${filePath}`);
 	}
 	
-	console.log('downloading file...');
-	exec(`~/downloads/yt-dlp ${bodyText} -x --audio-format mp3 -o ${mp3Folder}/${videoId}`, (error, stdout, stderr) => {
+	logger.info('downloading file...');
+	exec(`${dlExecutable} ${bodyText} -x --audio-format mp3 -o ${mp3Folder}/${videoId}`, (error, stdout, stderr) => {
 	  if (error) {
-		console.error(`Error executing command: ${error}`);
+		logger.error(`Error executing command: ${error}`);
 		return res.status(500).json({ error: 'Internal server error' });
 	  }
 	  if (stderr) {
-		console.error(`Command stderr: ${stderr}`);
+		logger.error(`Command stderr: ${stderr}`);
 		return res.status(500).json({ error: 'Internal server error' });
 	  }
-	  
+
+	  res.send(getSongUrl(`${videoId}.mp3`));
+
 	  // check size of mp3 folder, delete oldest file if over capacity
 	  (async () => {
 		const size = await dirSize(mp3Folder);
-		console.log('mp3 folder size:', size);
+		logger.info(`mp3 folder size: ${size}`);
 		if (size > maxStorage) {
 			const oldestFile = glob.sync(`${mp3Folder}/*mp3`)
 				.map(name => ({name, ctime: fs.statSync(name).ctime}))
 				.sort((a, b) => a.ctime - b.ctime)[0].name
-			console.log('deleting oldest file:', oldestFile);
+			logger.info(`deleting oldest file: ${oldestFile}`);
 			fs.unlink(oldestFile, (err) => {
 				if (err) {
-				  console.error('Error deleting file:', err);
+				  logger.error('Error deleting file');
 				} else {
-				  console.log('File deleted successfully');
+				  logger.info('File deleted successfully');
 				}
-			  });
+			});
 		}
 	  })();
-	  res.send(getSongUrl(`${videoId}.mp3`));
 	});
   });
 
@@ -151,4 +169,4 @@ app.post("/*", (req, res) => {
 	res.status(400).send('they FOOLED me, jerry');
 });
 
-app.listen(port, "0.0.0.0", () => console.log(`Listening on port ${port}`));
+app.listen(port, "0.0.0.0", () => logger.info(`Listening on port ${port}`));

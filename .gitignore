@@ -3,9 +3,15 @@
 #bun
 bun.lockb
 
+#yt-dlp executable in bin folder
+/bin
+
+#mp3s folder
+/mp3s
+
 # Logs
 
-logs
+/logs
 _.log
 npm-debug.log_
 yarn-debug.log*
