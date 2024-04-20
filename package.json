@@ -1,0 +1,14 @@
+{
+  "name": "ytdlapi",
+  "module": "app.js",
+  "type": "module",
+  "devDependencies": {
+    "@types/bun": "latest"
+  },
+  "peerDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "ytdl-core": "^4.11.5"
+  }
+}
