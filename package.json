@@ -2,6 +2,9 @@
   "name": "ytdlapi",
   "module": "app.js",
   "type": "module",
+  "scripts": {
+    "build": "bun build ./app.js --target bun --outfile ./dist/app.js"
+  },
   "devDependencies": {
     "@types/bun": "latest"
   },
